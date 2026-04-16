@@ -1,79 +1,71 @@
-# 流程圖設計文件：食譜管理系統
+# 流程圖文件 (Flowchart) - 個人記帳簿
 
-本文件根據產品需求文件 (PRD) 與系統架構文件，視覺化使用者在食譜管理系統中的操作流程、系統背後的處理步驟，以及功能與路由的對照表。
+這份文件基於產品需求文件 (PRD) 與系統架構文件 (Architecture) 所設計的流程視覺化圖表，旨在說明使用者的操作路徑與系統內部的資料互動過程。
 
-## 1. 使用者流程圖（User Flow）
+## 1. 使用者流程圖 (User Flow)
 
-以下流程圖說明當使用者開啟網頁後，可以執行的各項功能及頁面轉換路徑：
+此圖描述使用者從進入記帳系統開始的完整操作路徑，包含瀏覽與新增資料等核心動作。
 
 ```mermaid
 flowchart LR
-    A([使用者開啟網站]) --> B[首頁 - 食譜列表]
+    Start([使用者開啟網頁]) --> Home[這月統計首頁]
     
-    B --> C{選擇欲執行的功能}
+    Home --> ViewBalance[查看總收入、總支出與餘額]
+    Home --> ViewChart[查看本月支出比例圓餅圖]
     
-    %% 新增食譜路線
-    C -->|點擊「新增食譜」| D[填寫新增表單頁面]
-    D -->|送出表單| B
+    Home -->|點擊查看明細| History[歷史收支紀錄頁]
+    History -->|返回| Home
     
-    %% 搜尋/篩選路線
-    C -->|輸入「關鍵字 / 食材」| E[呈現篩選後的列表]
-    E --> C
+    Home -->|點擊新增紀錄| AddPage[新增收支頁面]
+    History -->|點擊新增紀錄| AddPage
     
-    %% 查看與編輯/刪除路線
-    C -->|點擊某個「食譜項目」| F[食譜明細頁面]
-    F --> G{在明細頁中選擇操作}
+    AddPage --> FillForm{填寫表單內容}
+    FillForm -->|輸入金額、選擇分類| Submit[點擊送出]
     
-    G -->|返回| B
-    G -->|點擊「編輯食譜」| H[填寫編輯表單頁面]
-    H -->|送出表單| F
-    G -->|點擊「刪除食譜」| I[確認並刪除]
-    I -->|刪除成功| B
+    Submit --> Save[(儲存成功)]
+    Save -->|系統自動導向| Home
 ```
 
-## 2. 系統序列圖（Sequence Diagram）
+## 2. 系統序列圖 (System Flow - 新增紀錄)
 
-以下序列圖以核心功能**「新增食譜」**為例，展示從使用者介面送出資料到成功寫入資料庫並重導向的完整過程：
+此圖描述使用者執行「新增一筆收支紀錄」時，系統前後端及資料庫之間完整的互動過程。
 
 ```mermaid
 sequenceDiagram
     actor User as 使用者
-    participant Browser as 瀏覽器 (模板渲染)
-    participant Flask Route as 路由 (Controller)
-    participant Model as 邏輯模型 (Model)
+    participant Browser as 瀏覽器 (前端)
+    participant Flask Route as 路由控制器 (Flask)
+    participant Model as 資料模型 (Python)
     participant DB as SQLite 資料庫
 
-    User->>Browser: 在表單頁面填妥食譜資訊並點擊送出
-    Browser->>Flask Route: 發送 POST /recipes 請求 (攜帶表單資料)
+    User->>Browser: 填寫收支表單 (金額=100, 分類=午餐)
+    User->>Browser: 點按「送出」按鈕
+    Browser->>Flask Route: 傳送 POST /add 請求 (附帶表單資料)
     
-    Note over Flask Route, DB: 開始處理新增邏輯
+    rect rgb(240, 248, 255)
+        Note over Flask Route, Model: 系統內部處理階段
+        Flask Route->>Flask Route: 驗證資料格式正確性
+        Flask Route->>Model: 呼叫新增紀錄常式 (add_record)
+        Model->>DB: 執行 INSERT INTO 語法將資料寫入資料表
+        DB-->>Model: 回傳新列 ID (寫入成功)
+        Model-->>Flask Route: 紀錄新增成功
+    end
     
-    Flask Route->>Model: 呼叫 Recipe.create(data) 傳入解析後的資料
-    Model->>DB: 執行 SQL INSERT INTO recipes ... 
-    DB-->>Model: 回傳寫入成功訊息
-    Model-->>Flask Route: 回傳新建立的 Recipe 物件
-    
-    Note over Flask Route, Browser: 處理畫面重導向
-    
-    Flask Route-->>Browser: 回傳 302 Redirect 至首頁 (食譜列表)
-    Browser->>Flask Route: 發送 GET / 請求
-    Flask Route->>Model: 取得最新所有食譜列表
-    Model->>DB: 執行 SELECT * FROM recipes
-    DB-->>Model: 回傳新列資料
-    Model-->>Flask Route: 列表資料
-    Flask Route-->>Browser: 使用最新資料重新渲染 index.html (首頁)
+    Flask Route-->>Browser: HTTP 302 Redirect (重新導向至首頁 /)
+    Browser->>Flask Route: 發出 GET / 取得最新首頁
+    Note over Flask Route, Browser: 重新運算包含最新紀錄的餘額與圖表並回傳渲染頁面
+    Browser-->>User: 畫面更新，顯示最新餘額與新增的紀錄
 ```
 
-## 3. 功能清單對照表
+## 3. 功能清單與路由對照表
 
-對應上述流程與 PRD 需求，以下為系統功能對應的 URL 路徑與 HTTP 方法整理，提供後續 API/路由設計的參考：
+本表統整了上述流程圖中所對應到的基礎軟體功能、與其在 Flask 開發時將設定之路由 (Route)。
 
-| 功能項目說明 | HTTP 方法 | 預計對應的 URL 路徑 | View (Jinja2) | 備註 |
-| --- | :---: | --- | --- | --- |
-| **首頁 / 所有食譜總覽** | `GET` | `/` 或 `/recipes` | `index.html` | 可結合查詢參數 `?q=關鍵字` 處理搜尋與食材推薦功能。 |
-| **進入新增食譜表單頁** | `GET` | `/recipes/new` | `form.html` | 呈現空白的輸入表單。 |
-| **提交新增食譜資料** | `POST` | `/recipes` | *(處理無畫面)* | 處理完後 302 重導向回首頁。 |
-| **查看單一食譜明細** | `GET` | `/recipes/<id>` | `show.html` | 顯示特定 ID 的食譜完整步驟與內容。 |
-| **進入編輯食譜表單頁** | `GET` | `/recipes/<id>/edit` | `form.html` | 呈現帶有原始資料的編輯表單。 |
-| **提交更新的食譜資料** | `POST` | `/recipes/<id>/update` | *(處理無畫面)* | 使用 HTML form 故用 POST，更新完成後重導回明細頁。 |
-| **確定刪除食譜** | `POST` | `/recipes/<id>/delete` | *(處理無畫面)* | 使用 form 觸發 POST，刪除完成後重導回首頁。 |
+| 功能名稱 | 介面說明 | 對應 URL 路徑 | HTTP 方法 |
+| :--- | :--- | :--- | :--- |
+| **首頁與餘額概況** | 顯示當月總收入、總支出、結餘數字與支出圓餅圖 | `/` | `GET` |
+| **新增紀錄介面** | 提供下拉選單選擇分類，輸入金額與備註的表單 | `/add` | `GET` |
+| **送出新增紀錄** | 接收表單傳遞過來的資料並寫入資料庫 | `/add` | `POST` |
+| **歷史紀錄列表** | 提供表格狀的收支歷史明細（依時間倒序） | `/history` | `GET` |
+
+> 註：這些路由對應的是 MVP 核心階段所必須實作的功能範圍。未來如擴充編輯、刪除或匯出 CSV 功能，將在此表後續擴展對應的 `/edit/<id>`, `/delete/<id>`, 與 `/export` 路由。
