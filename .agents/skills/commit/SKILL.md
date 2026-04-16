@@ -120,3 +120,7 @@ git push
 **Q: 不小心 commit 了不該 commit 的檔案？**
 
 告訴 AI：「我剛才不小心 commit 了 [檔案名稱]，請幫我移除。」
+
+**Q: 環境設定檔案與重要的機密文件要加入嗎?**
+
+環境設定檔案（如 `.env`、`.env.local`、`.venv`）和機密文件（如 `secrets.py`、`config.py`）**絕對不要**加入 Git 追蹤。這些檔案通常包含敏感資訊（如 API 金鑰、資料庫密碼），應該被加入 `.gitignore` 中。
