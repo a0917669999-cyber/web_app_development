@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-9">
+        <div class="glass-card p-5 border-0">
+            <h2 class="mb-5 fw-bold"><span class="text-gradient">新增</span>私人食譜</h2>
+            <form action="{{ url_for('recipe.create') }}" method="POST">
+                <div class="mb-4">
+                    <label for="title" class="form-label fs-5">食譜名稱 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-lg border-0 py-3" id="title" name="title" required placeholder="例如：拿波里義大利麵">
+                </div>
+                <div class="mb-4">
+                    <label for="description" class="form-label fs-5">簡短描述</label>
+                    <textarea class="form-control border-0 py-3" id="description" name="description" rows="2" placeholder="簡單介紹這道菜..."></textarea>
+                </div>
+                
+                <div class="row mb-4">
+                    <div class="col-md-6 mb-4 mb-md-0">
+                        <label for="ingredients" class="form-label fs-5">所需食材 <small class="text-muted fw-normal fs-6">(以逗號分隔)</small></label>
+                        <textarea class="form-control border-0 py-3" id="ingredients" name="ingredients" rows="3" placeholder="例如：義大利麵, 培根, 番茄醬"></textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="tags" class="form-label fs-5">標籤分類 <small class="text-muted fw-normal fs-6">(以逗號分隔)</small></label>
+                        <textarea class="form-control border-0 py-3" id="tags" name="tags" rows="3" placeholder="例如：晚餐, 義式料理, 快速簡便"></textarea>
+                    </div>
+                </div>
+
+                <div class="mb-5">
+                    <label for="instructions" class="form-label fs-5">詳細步驟</label>
+                    <textarea class="form-control border-0 py-3" id="instructions" name="instructions" rows="8" placeholder="準備好鍋子與食材..."></textarea>
+                </div>
+                
+                <div class="d-flex justify-content-end gap-3 mt-5">
+                    <a href="{{ url_for('recipe.index') }}" class="btn btn-outline-glass px-5 py-3 rounded-pill fw-bold">取消</a>
+                    <button type="submit" class="btn btn-gradient px-5 py-3 rounded-pill fs-5">儲存至食譜館</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
