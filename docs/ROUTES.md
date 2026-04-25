@@ -1,78 +1,52 @@
 # API 與路由設計文件 (API Design)
 
-這份文件規劃了食譜管理系統的 URL 路由、對應的 HTTP 方法，以及用來渲染畫面的 Jinja2 模板清單。
+這份文件規劃了「個人記帳簿」系統的 URL 路由、對應的 HTTP 方法，以及用來渲染畫面的 Jinja2 模板清單。
 
 ## 1. 路由總覽表格
 
-| 功能項目 | HTTP 方法 | URL 路徑 | 對應模板 | 說明 |
+| 功能 | HTTP 方法 | URL 路徑 | 對應模板 | 說明 |
 | --- | :---: | --- | --- | --- |
-| **首頁 / 食譜總覽** | `GET` | `/` | `recipes/index.html` | 顯示所有食譜，支援 `?q=關鍵字` 或是 `?ingredients=食材` 進行搜尋或推薦過濾。 |
-| **新增食譜表單** | `GET` | `/recipes/new` | `recipes/new.html` | 顯示空白的新增食譜表單。 |
-| **建立食譜** | `POST` | `/recipes` | *(無)* | 接收表單資料，寫入資料庫，並重導向回首頁。 |
-| **食譜詳情** | `GET` | `/recipes/<int:id>` | `recipes/show.html` | 根據 ID 查詢資料庫，展示特定食譜的食材、步驟與標籤。 |
-| **編輯食譜表單** | `GET` | `/recipes/<int:id>/edit` | `recipes/edit.html` | 取得特定 ID 食譜的原始資料，帶入編輯表單。 |
-| **更新食譜** | `POST` | `/recipes/<int:id>/update` | *(無)* | 由於瀏覽器原生表單不支援 PUT，故使用 POST 更新資料庫，完成後重導向至該食譜詳情頁面。 |
-| **刪除食譜** | `POST` | `/recipes/<int:id>/delete` | *(無)* | 使用 POST 刪除特定食譜，並重導向回首頁。 |
+| **首頁 / 餘額概況** | `GET` | `/` | `index.html` | 顯示當月總收入、總支出、結餘數字與支出圓餅圖 |
+| **新增紀錄介面** | `GET` | `/add` | `add.html` | 提供下拉選單選擇分類，輸入金額與備註的表單 |
+| **送出新增紀錄** | `POST` | `/add` | — | 接收表單傳遞過來的資料並寫入資料庫，完成後重導向至首頁 |
+| **歷史紀錄列表** | `GET` | `/history` | `history.html` | 提供表格狀的收支歷史明細（依時間倒序） |
 
 ## 2. 每個路由的詳細說明
 
 ### `GET /`
-- **輸入**：URL Query String（例如 `?q=牛肉` 或 `?ingredient=雞蛋`）。
-- **處理邏輯**：
-  - 如果沒有參數，呼叫 `Recipe.get_all()` 回傳全部清單。
-  - 有參數則執行關鍵字查詢，或結合關聯表做食材查詢。
-- **輸出**：渲染 `recipes/index.html`。
-
-### `GET /recipes/new`
 - **輸入**：無。
-- **處理邏輯**：單純回傳頁面。
-- **輸出**：渲染 `recipes/new.html`。
+- **處理邏輯**：呼叫 `ExpenseModel.get_summary()` 取得收支與結餘統計。
+- **輸出**：渲染 `index.html`，並將統計數據傳入以供畫面與圓餅圖渲染。
+- **錯誤處理**：無。
 
-### `POST /recipes`
-- **輸入**：HTML 表單資料 (包含 title, description, instructions，以及動態新增的 ingredients/tags)。
+### `GET /add`
+- **輸入**：無。
+- **處理邏輯**：單純回傳新增收支的表單頁面。
+- **輸出**：渲染 `add.html`。
+
+### `POST /add`
+- **輸入**：HTML 表單資料（包含 `type` 收入/支出、`amount` 金額、`category` 分類、`description` 備註）。
 - **處理邏輯**：
-  - 呼叫 `Recipe.create()`，取得新的 `recipe_id`。
-  - 迴圈處理 `ingredients` 與 `tags`，連結至 `recipe_id`。
+  - 驗證必填欄位。
+  - 呼叫 `ExpenseModel.create()` 將紀錄寫入 SQLite。
 - **輸出**：HTTP `302 Redirect` 至 `/`。
-- **錯誤處理**：如果必填欄位 (title) 為空，可使用 flash() 傳遞錯誤訊息然後重新渲染 `recipes/new.html`。
+- **錯誤處理**：若資料驗證失敗，回傳錯誤提示並重新渲染 `add.html`。
 
-### `GET /recipes/<int:id>`
-- **輸入**：URL 路徑上的 `<id>`。
-- **處理邏輯**：
-  - 呼叫 `Recipe.get_by_id(id)`，若找不到回報 404 Not Found。
-  - 同時撈取對應的 Ingredients 與 Tags 資料。
-- **輸出**：渲染 `recipes/show.html`，傳入食譜完整資料。
-
-### `GET /recipes/<int:id>/edit`
-- **輸入**：URL 路徑上的 `<id>`。
-- **處理邏輯**：
-  - 取出 `Recipe`、`Ingredients`、`Tags` 放入表單。
-- **輸出**：渲染 `recipes/edit.html`。
-
-### `POST /recipes/<int:id>/update`
-- **輸入**：URL 路徑上的 `<id>`, HTML 表單修改後的資料。
-- **處理邏輯**：
-  - 執行 `Recipe.update()`。
-  - 覆寫食材與標籤 (先刪除舊有關聯再重新寫入)。
-- **輸出**：HTTP `302 Redirect` 至 `/recipes/<id>`。
-
-### `POST /recipes/<int:id>/delete`
-- **輸入**：URL 路徑上的 `<id>`。
-- **處理邏輯**：呼叫 `Recipe.delete(id)`，仰賴 CASCADE 刪除相關食材與標籤關聯。
-- **輸出**：HTTP `302 Redirect` 至 `/`。
+### `GET /history`
+- **輸入**：無。
+- **處理邏輯**：呼叫 `ExpenseModel.get_all()` 取得所有歷史收支紀錄。
+- **輸出**：渲染 `history.html`，並傳入紀錄清單以呈現表格。
 
 ## 3. Jinja2 模板清單
 
 所有的模板將放置於 `app/templates` 中。
 
 1. **`base.html`**
-   - 全網站的共通骨架，包含 `<head>`、Navbar、Footer 等。
+   - 全網站的共通骨架，包含 `<head>`、頂部導覽列（Navbar）等。
    - 提供 `{% block content %}{% endblock %}` 讓子模板繼承。
-2. **`recipes/index.html`** (繼承 `base.html`)
-   - 包含搜尋列、食譜清單 (卡片或列表呈現)。
-3. **`recipes/new.html`** (繼承 `base.html`)
-   - 提供新增表單介面。
-4. **`recipes/show.html`** (繼承 `base.html`)
-   - 瀏覽食譜介面明細，並帶有「編輯」與「刪除」按鈕。
-5. **`recipes/edit.html`** (繼承 `base.html`)
-   - 功能與 `new.html` 類似，但在渲染時 value 會帶入原始食譜資訊。
+2. **`index.html`** (繼承 `base.html`)
+   - 首頁：顯示當前餘額、收入/支出總和卡片，以及使用 Canvas 搭配 JS 繪製的圓餅圖。
+3. **`add.html`** (繼承 `base.html`)
+   - 新增紀錄頁面：包含選擇收支類型、填寫金額、分類與備註的表單。
+4. **`history.html`** (繼承 `base.html`)
+   - 歷史紀錄頁面：以表格或清單方式列出所有的收支明細。
